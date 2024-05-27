@@ -1,0 +1,228 @@
+-- made by angor --
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
+local player = Players.LocalPlayer
+local camera = game.Workspace.CurrentCamera
+local lockedOnPlayer = nil
+local aiming = false
+local function getClosestPlayer()
+	local closestPlayer = nil
+	local shortestDistance = math.huge
+	for _, otherPlayer in pairs(Players:GetPlayers()) do
+		if otherPlayer ~= player then
+			local character = otherPlayer.Character
+			if character and character:FindFirstChild("HumanoidRootPart") then
+				local distance = (character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+				if distance < shortestDistance then
+					shortestDistance = distance
+					closestPlayer = otherPlayer
+				end
+			end
+		end
+	end
+	return closestPlayer
+end
+local function aimAtTarget(targetPlayer)
+	if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		local targetPosition = targetPlayer.Character.HumanoidRootPart.Position
+		local direction = (targetPosition - camera.CFrame.Position).Unit
+		local newCFrame = CFrame.new(camera.CFrame.Position, camera.CFrame.Position + direction)
+		camera.CFrame = newCFrame
+	end
+end
+local function parseColor(input)
+	local r, g, b = input:match("(%d+),(%d+),(%d+)")
+	if r and g and b then
+		return Color3.fromRGB(tonumber(r), tonumber(g), tonumber(b))
+	else
+		local colorNames = {
+			["white"] = Color3.fromRGB(255, 255, 255),
+			["red"] = Color3.fromRGB(255, 0, 0),
+			["green"] = Color3.fromRGB(0, 255, 0),
+			["blue"] = Color3.fromRGB(0, 0, 255),
+		}
+		local color = colorNames[input:lower()]
+		if color then
+			return color
+		else
+			return nil
+		end
+	end
+end
+local function drawESPBox(character, color)
+	local torso = character:FindFirstChild("HumanoidRootPart")
+	if torso then
+		local size = torso.Size * Vector3.new(6, 6, 6) 
+		local position = torso.Position + Vector3.new(0, size.Y/2, 0)
+		local top = position + Vector3.new(0, size.Y/2, 0)
+		local bottom = position - Vector3.new(0, size.Y/2, 0)
+
+		local box = Instance.new("BoxHandleAdornment")
+		box.Size = size
+		box.Color3 = color
+		box.AlwaysOnTop = true
+		box.Transparency = 0.5
+		box.Adornee = torso
+		box.Parent = torso
+	end
+end
+local function removeESPBox(character)
+	local torso = character:FindFirstChild("HumanoidRootPart")
+	if torso then
+		for _, child in ipairs(torso:GetChildren()) do
+			if child:IsA("BoxHandleAdornment") then
+				child:Destroy()
+			end
+		end
+	end
+end
+local function startAiming()
+	aiming = true
+	lockedOnPlayer = getClosestPlayer()
+	if lockedOnPlayer then
+		drawESPBox(lockedOnPlayer.Character, Color3.new(1, 0, 0)) 
+		StarterGui:SetCore("SendNotification", {
+			Title = "😈 time",
+			Image = "rbxassetid://448716678",
+			Text = "person u bouta lock onto locked: " .. lockedOnPlayer.Name,
+			Duration = 3
+		})
+	end
+end
+game:GetService("RunService").RenderStepped:Connect(function()
+	if aiming and lockedOnPlayer then
+		aimAtTarget(lockedOnPlayer)
+	end
+end)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if not gameProcessed and input.KeyCode == Enum.KeyCode.Q then
+		if aiming then
+			aiming = false
+			removeESPBox(lockedOnPlayer.Character)
+			lockedOnPlayer = nil
+			StarterGui:SetCore("SendNotification", {
+				Title = "skibidi why u unlock",
+				Text = "i think bro unlocked idk",
+				Image = "rbxassetid://448716678",
+				Duration = 3
+			})
+		else
+			startAiming()
+		end
+	end
+end)
+
+local gui = Instance.new("ScreenGui")
+gui.Parent = game.Players.LocalPlayer.PlayerGui
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 200, 0, 200)
+frame.Position = UDim2.new(0, 0, 0, 0)
+frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+frame.BorderSizePixel = 0
+frame.BackgroundTransparency = 0.4
+frame.Parent = gui
+local dragging
+local dragInput
+local dragStart
+local startPos
+local function dragStartFunction(input)
+	dragStart = input.Position
+	startPos = frame.Position
+	dragging = true
+	input.Changed:Connect(function()
+		if input.UserInputState == Enum.UserInputState.End then
+			dragging = false
+		end
+	end)
+end
+local function dragMoveFunction(input)
+	if dragging then
+		dragInput = input
+		local delta = dragInput.Position - dragStart
+		frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
+end
+frame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragStartFunction(input)
+	end
+end)
+
+frame.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragMoveFunction(input)
+	end
+end)
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 4) 
+uiCorner.Parent = frame
+frame.Parent = gui
+local colorTextBox = Instance.new("TextBox")
+colorTextBox.Size = UDim2.new(0, 150, 0, 30)
+colorTextBox.TextColor3 = Color3.fromRGB(195, 195, 195)
+colorTextBox.Text = "Color Here"
+colorTextBox.Font = Enum.Font.SourceSansBold
+colorTextBox.TextSize = 14
+colorTextBox.Position = UDim2.new(0.05, 10, 0.2, 0)
+colorTextBox.PlaceholderColor3 = Color3.fromRGB(195, 195, 195)
+colorTextBox.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+colorTextBox.BackgroundTransparency = 0.6
+colorTextBox.PlaceholderText = "Color Here"
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Color = Color3.fromRGB(55, 55, 56)
+uiStroke.ApplyStrokeMode = "Border" 
+uiStroke.Thickness = 1.5
+uiStroke.Transparency = 0.1
+uiStroke.Parent = colorTextBox
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 4) 
+uiCorner.Parent = colorTextBox
+colorTextBox.Parent = frame
+local execColorButton = Instance.new("TextButton")
+execColorButton.Size = UDim2.new(0, 150, 0, 30)
+execColorButton.TextColor3 = Color3.fromRGB(195, 195, 195)
+execColorButton.Font = Enum.Font.SourceSansBold
+execColorButton.TextSize = 14
+execColorButton.Position = UDim2.new(0.05, 10, 0.8, 0)
+execColorButton.Text = "Execute Color"
+execColorButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+execColorButton.BorderSizePixel = 2
+execColorButton.BackgroundTransparency = 0.8
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Color = Color3.fromRGB(55, 55, 56) 
+uiStroke.ApplyStrokeMode = "Border" 
+uiStroke.Thickness = 1.5
+uiStroke.Transparency = 0.1
+uiStroke.Parent = execColorButton
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 4) 
+uiCorner.Parent = execColorButton
+execColorButton.Parent = frame
+local frame1 = Instance.new("Frame")
+frame1.Size = UDim2.new(0, 200, 0, 1)
+frame1.Position = UDim2.new(0, 0, 0.1, 0)
+frame1.BackgroundColor3 = Color3.fromRGB(255,255,255)
+frame1.BorderSizePixel = 0
+frame1.BackgroundTransparency = 0.4
+frame1.Parent = frame 
+local textlabel = Instance.new("TextLabel")
+textlabel.Size = UDim2.new(0, 150, 0, 30)
+textlabel.TextColor3 = Color3.fromRGB(195, 195, 195)
+textlabel.Text = "[Color ESP]"
+textlabel.Font = Enum.Font.SourceSansBold
+textlabel.TextSize = 12
+textlabel.Position = UDim2.new(0, -45, -0.02, 0)
+textlabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+textlabel.BackgroundTransparency = 1
+textlabel.Parent = frame
+execColorButton.MouseButton1Click:Connect(function()
+	local colorText = colorTextBox.Text
+	local color = parseColor(colorText)
+	if color then
+		if aiming and lockedOnPlayer then
+			removeESPBox(lockedOnPlayer.Character)
+			drawESPBox(lockedOnPlayer.Character, color)
+		end
+		end
+end)
